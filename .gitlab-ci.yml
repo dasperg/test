@@ -1,0 +1,54 @@
+##
+#
+# First you need to prepare docker image for project
+#
+##
+
+image: registry.gitlab.com/owner/repo:latest
+
+services:
+  - mysql:5.7
+
+variables:
+  MYSQL_DATABASE: homestead
+  MYSQL_USER: homestead
+  MYSQL_PASSWORD: secret
+  MYSQL_PORT: 3306
+  MYSQL_ROOT_PASSWORD: secret
+
+stages:
+  - build
+  - test
+  - deploy
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - vendor
+    - .composer-cache
+
+before_script:
+  - cp .env.gitlab .env
+  - php artisan key:generate
+
+build:  # Prepare composer dependencies, creates vendor &
+  stage: build
+  script:
+    - composer config -g cache-dir "$(pwd)/.composer-cache"
+    - composer install --ignore-platform-reqs --optimize-autoloader --no-ansi --no-interaction --no-progress
+#    - TODO: install front-end dependencies [npm install...]
+
+test: # Prepare data and run tests
+  stage: test
+  script:
+    - php artisan migrate --seed
+    - vendor/bin/phpunit
+
+deploy: # Deploy from master
+  stage: deploy
+  only:
+    - master
+  script:
+#     As first push must be git ftp init, deploy whole project
+#    - git ftp init --user $FTP_USERNAME --passwd $FTP_PASSWORD $FTP_HOST
+    - git ftp push --user $FTP_USERNAME --passwd $FTP_PASSWORD $FTP_HOST
